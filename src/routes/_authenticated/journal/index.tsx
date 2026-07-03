@@ -25,7 +25,8 @@ function JournalList() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-2xl font-bold">Journal</h2>
           <Link
-            to="/journal/new"
+            to="/journal/$id"
+            params={{ id: "new" }}
             className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground glow-blue"
           >
             <Plus className="h-3.5 w-3.5" />New Entry
