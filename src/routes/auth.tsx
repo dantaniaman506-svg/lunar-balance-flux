@@ -25,13 +25,30 @@ function AuthPage() {
     fxTap();
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        // Sign up (email confirmation disabled on Supabase dashboard → session returned immediately)
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
         });
-        if (error) throw error;
-        toast.success("Account created! Check your email to confirm.");
+        if (signUpError) throw signUpError;
+
+        if (signUpData.session) {
+          // Supabase has "Confirm email" OFF — logged in directly
+          navigate({ to: "/onboarding" });
+          return;
+        }
+
+        // Fallback: if Supabase still sends a confirmation email, try signing in anyway
+        // (works once the user is created even if unconfirmed on some Supabase plan configs)
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (!signInError && signInData.session) {
+          navigate({ to: "/onboarding" });
+        } else {
+          toast.info("Account created — check your email to confirm, then sign in.");
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
