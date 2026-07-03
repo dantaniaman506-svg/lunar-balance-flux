@@ -56,6 +56,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Trading discipline app: strategy checklist, position size calculator, journal, and equity dashboard." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Alpha Life — Lead the Pack" },
+      { name: "twitter:description", content: "Trading discipline app: strategy checklist, position size calculator, journal, and equity dashboard." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6054a6f5-67bf-4330-bfae-c8a6aa18b1c7/id-preview-923d42c6--c4e079f6-e0c6-4484-b6f7-ade9e61a7796.lovable.app-1783072210180.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6054a6f5-67bf-4330-bfae-c8a6aa18b1c7/id-preview-923d42c6--c4e079f6-e0c6-4484-b6f7-ade9e61a7796.lovable.app-1783072210180.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
