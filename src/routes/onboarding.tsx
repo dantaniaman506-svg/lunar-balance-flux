@@ -3,14 +3,16 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fxTap, fxConfirm } from "@/lib/feedback";
-import wolfAsset from "@/assets/wolf-logo.asset.json";
 
 export const Route = createFileRoute("/onboarding")({
-  ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/auth" });
-    const { data: p } = await supabase.from("profiles").select("onboarded").eq("id", data.user.id).maybeSingle();
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) throw redirect({ to: "/auth" });
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("onboarded")
+      .eq("id", data.session.user.id)
+      .maybeSingle();
     if (p?.onboarded) throw redirect({ to: "/home" });
   },
   component: Onboarding,
@@ -27,17 +29,20 @@ function Onboarding() {
   async function finish() {
     setSaving(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error("No user");
-      const { error } = await supabase.from("profiles").update({
-        name: name.trim(),
-        account_balance_usd: Number(balance) || 0,
-        experience,
-        onboarded: true,
-      }).eq("id", userData.user.id);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error("No session");
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          name: name.trim(),
+          account_balance_usd: Number(balance) || 0,
+          experience,
+          onboarded: true,
+        })
+        .eq("id", sessionData.session.user.id);
       if (error) throw error;
       fxConfirm();
-      navigate({ to: "/home" });
+      navigate({ to: "/plan" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -56,12 +61,12 @@ function Onboarding() {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center">
           <div className="h-16 w-16 overflow-hidden rounded-full ring-2 ring-primary/40 glow-blue">
-            <img src={wolfAsset.url} className="h-full w-full object-cover" alt="" />
+            <img src="/wolf-logo.png" className="h-full w-full object-cover" alt="" />
           </div>
         </div>
         <div className="mb-6 flex justify-center gap-1.5">
           {[0, 1, 2].map((i) => (
-            <div key={i} className={`h-1 w-8 rounded-full ${i <= step ? "bg-primary" : "bg-border"}`} />
+            <div key={i} className={`h-1 w-8 rounded-full transition-all ${i <= step ? "bg-primary" : "bg-border"}`} />
           ))}
         </div>
 
@@ -69,11 +74,12 @@ function Onboarding() {
           {step === 0 && (
             <>
               <h2 className="font-display text-2xl font-bold">What's your name?</h2>
-              <p className="mt-1 text-sm text-muted-foreground">We'll greet you here every day.</p>
+              <p className="mt-1 text-sm text-muted-foreground">We'll greet you every day.</p>
               <input
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && canNext && next()}
                 className="mt-6 w-full rounded-xl border border-border bg-input px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                 placeholder="Your name"
               />
@@ -88,6 +94,7 @@ function Onboarding() {
                 <input
                   type="number"
                   step="0.01"
+                  autoFocus
                   value={balance}
                   onChange={(e) => setBalance(e.target.value)}
                   className="w-full bg-transparent px-2 py-3 text-lg outline-none"
@@ -106,7 +113,9 @@ function Onboarding() {
                     key={opt}
                     onClick={() => { fxTap(); setExperience(opt); }}
                     className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                      experience === opt ? "border-primary bg-primary/10 text-primary glow-blue-soft" : "border-border bg-input text-foreground"
+                      experience === opt
+                        ? "border-primary bg-primary/10 text-primary glow-blue-soft"
+                        : "border-border bg-input text-foreground"
                     }`}
                   >
                     {opt}
@@ -119,9 +128,9 @@ function Onboarding() {
           <button
             disabled={!canNext || saving}
             onClick={step === 2 ? finish : next}
-            className="mt-8 w-full rounded-full bg-gradient-to-r from-primary to-primary/80 py-3.5 text-sm font-bold text-primary-foreground glow-blue transition active:scale-[0.98] disabled:opacity-40"
+            className="mt-8 w-full rounded-full bg-gradient-to-r from-[#00A2FF] to-[#3B82F6] py-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(0,162,255,0.5)] transition active:scale-[0.98] disabled:opacity-40"
           >
-            {saving ? "..." : step === 2 ? "Enter dashboard" : "Continue"}
+            {saving ? "..." : step === 2 ? "Continue to Plans" : "Continue"}
           </button>
         </div>
       </div>

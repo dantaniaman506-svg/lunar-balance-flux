@@ -3,7 +3,7 @@ import { Home, CheckSquare, BookOpen, Settings } from "lucide-react";
 import { fxTap } from "@/lib/feedback";
 
 const items = [
-  { to: "/", label: "Home", icon: Home },
+  { to: "/home", label: "Home", icon: Home },
   { to: "/tasks", label: "Rules", icon: CheckSquare },
   { to: "/journal", label: "Journal", icon: BookOpen },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -20,7 +20,6 @@ export function BottomNav() {
             onClick={() => fxTap()}
             className="group flex flex-1 flex-col items-center gap-1 py-2.5 text-muted-foreground transition"
             activeProps={{ className: "text-primary" }}
-            activeOptions={{ exact: to === "/" }}
           >
             <Icon className="h-5 w-5" />
             <span className="text-[10px] font-medium">{label}</span>

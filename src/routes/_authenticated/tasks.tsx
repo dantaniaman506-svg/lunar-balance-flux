@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BrandHeader } from "@/components/brand-header";
 import { BottomNav } from "@/components/bottom-nav";
-import { Check, Copy, Lock, Zap } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, Copy, Lock, Unlock, Zap } from "lucide-react";
+import { useRef, useMemo, useState } from "react";
 import { fxCheck, fxUncheck, fxConfirm, fxTap } from "@/lib/feedback";
 import { PAIRS, calcLotSize } from "@/lib/pip-value";
 import { toast } from "sonner";
@@ -20,6 +20,8 @@ function todayStr() {
 function TasksPage() {
   const qc = useQueryClient();
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [unlockTarget, setUnlockTarget] = useState<string | null>(null);
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: rules } = useQuery({
     queryKey: ["rules"],
@@ -40,18 +42,38 @@ function TasksPage() {
   const checkedIds = useMemo(() => new Set((checks ?? []).map((c) => c.rule_id)), [checks]);
 
   function toggle(ruleId: string) {
-    if (checkedIds.has(ruleId)) return; // locked once confirmed
+    if (checkedIds.has(ruleId)) return;
     const next = new Set(pending);
     if (next.has(ruleId)) { next.delete(ruleId); fxUncheck(); }
     else { next.add(ruleId); fxCheck(); }
     setPending(next);
   }
 
+  /* Long-press to unlock */
+  function handlePressStart(ruleId: string, isLocked: boolean) {
+    if (!isLocked) return;
+    pressTimerRef.current = setTimeout(() => {
+      setUnlockTarget(ruleId);
+      fxTap();
+    }, 600);
+  }
+
+  function handlePressEnd() {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  }
+
   const confirmMut = useMutation({
     mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("no user");
-      const rows = [...pending].map((rule_id) => ({ user_id: u.user!.id, rule_id, date: todayStr() }));
+      const { data: s } = await supabase.auth.getSession();
+      if (!s.session) throw new Error("no session");
+      const rows = [...pending].map((rule_id) => ({
+        user_id: s.session!.user.id,
+        rule_id,
+        date: todayStr(),
+      }));
       const { error } = await supabase.from("daily_checklist").insert(rows);
       if (error) throw error;
     },
@@ -59,6 +81,26 @@ function TasksPage() {
       fxConfirm();
       toast.success(`${pending.size} check${pending.size > 1 ? "s" : ""} locked in`);
       setPending(new Set());
+      qc.invalidateQueries({ queryKey: ["checks"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const unlockMut = useMutation({
+    mutationFn: async (ruleId: string) => {
+      const { data: s } = await supabase.auth.getSession();
+      if (!s.session) throw new Error("no session");
+      const { error } = await supabase
+        .from("daily_checklist")
+        .delete()
+        .eq("rule_id", ruleId)
+        .eq("user_id", s.session.user.id)
+        .eq("date", todayStr());
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Rule unlocked — you can re-check it now");
+      setUnlockTarget(null);
       qc.invalidateQueries({ queryKey: ["checks"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -72,6 +114,9 @@ function TasksPage() {
           <h2 className="font-display text-2xl font-bold">Today's Rules</h2>
           <p className="text-xs text-muted-foreground">
             {checkedIds.size} / {rules?.length ?? 0} locked · {pending.size} pending
+            {checkedIds.size > 0 && (
+              <span className="ml-2 text-muted-foreground/60">· hold a locked rule to unlock</span>
+            )}
           </p>
         </div>
 
@@ -83,29 +128,46 @@ function TasksPage() {
               <button
                 key={rule.id}
                 onClick={() => toggle(rule.id)}
-                disabled={isLocked}
-                className={`flex w-full items-center gap-3 border-b border-border/60 px-4 py-3.5 text-left transition last:border-b-0 ${
+                onMouseDown={() => handlePressStart(rule.id, isLocked)}
+                onMouseUp={handlePressEnd}
+                onMouseLeave={handlePressEnd}
+                onTouchStart={() => handlePressStart(rule.id, isLocked)}
+                onTouchEnd={handlePressEnd}
+                onContextMenu={(e) => {
+                  if (isLocked) { e.preventDefault(); setUnlockTarget(rule.id); }
+                }}
+                className={`flex w-full items-center gap-3 border-b border-border/60 px-4 py-3.5 text-left transition last:border-b-0 select-none ${
                   isPending ? "bg-primary/10" : ""
                 }`}
               >
                 <div className="w-6 shrink-0 text-center text-xs font-bold text-muted-foreground">{i + 1}</div>
                 <div className="flex-1">
-                  <div className={`text-sm leading-snug ${isLocked ? "text-muted-foreground line-through" : isPending ? "text-primary font-medium" : "text-foreground"}`}>
+                  <div className={`text-sm leading-snug ${
+                    isLocked ? "text-muted-foreground line-through" :
+                    isPending ? "font-medium text-primary" : "text-foreground"
+                  }`}>
                     {rule.rule_text}
                   </div>
                 </div>
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
                   isLocked ? "bg-primary text-primary-foreground" :
                   isPending ? "bg-primary text-primary-foreground glow-blue" :
                   "border border-border text-muted-foreground"
                 }`}>
-                  {isLocked ? <Lock className="h-4 w-4" /> : isPending ? <Check className="h-4 w-4" /> : <Check className="h-4 w-4 opacity-30" />}
+                  {isLocked
+                    ? <Lock className="h-4 w-4" />
+                    : isPending
+                    ? <Check className="h-4 w-4" />
+                    : <Check className="h-4 w-4 opacity-30" />
+                  }
                 </div>
               </button>
             );
           })}
           {(rules ?? []).length === 0 && (
-            <div className="p-8 text-center text-sm text-muted-foreground">No rules yet. Add some in Settings.</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              No rules yet. Add some in Settings.
+            </div>
           )}
         </div>
 
@@ -119,12 +181,48 @@ function TasksPage() {
             <button
               onClick={() => confirmMut.mutate()}
               disabled={confirmMut.isPending}
-              className="flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-primary to-[oklch(0.75_0.18_230)] py-4 font-bold text-primary-foreground glow-blue-strong transition active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-[#00A2FF] to-[#0060FF] py-4 font-bold text-white shadow-[0_0_40px_rgba(0,162,255,0.65)] transition active:scale-[0.98] disabled:opacity-70"
             >
               <Zap className="h-5 w-5 fill-current" />
               <span>Confirm {pending.size} check{pending.size > 1 ? "s" : ""}</span>
               <span className="text-xs opacity-80">· locks selection</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Unlock popup */}
+      {unlockTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setUnlockTarget(null)}
+        >
+          <div
+            className="mx-4 w-full max-w-xs rounded-3xl bg-card p-6 glow-blue-soft"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <Unlock className="h-5 w-5 text-primary" />
+              <h3 className="font-display text-lg font-bold">Unlock Rule?</h3>
+            </div>
+            <p className="mb-5 text-sm text-muted-foreground">
+              This will uncheck the rule for today so you can re-evaluate and re-lock it.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setUnlockTarget(null)}
+                className="flex-1 rounded-full border border-border py-2.5 text-sm font-semibold text-muted-foreground active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => unlockMut.mutate(unlockTarget!)}
+                disabled={unlockMut.isPending}
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-bold text-primary-foreground glow-blue active:scale-95 disabled:opacity-60"
+              >
+                {unlockMut.isPending ? "..." : "Unlock"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -138,9 +236,9 @@ function PositionCalculator() {
   const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return null;
-      const { data } = await supabase.from("profiles").select("account_balance_usd").eq("id", u.user.id).single();
+      const { data: s } = await supabase.auth.getSession();
+      if (!s.session) return null;
+      const { data } = await supabase.from("profiles").select("account_balance_usd").eq("id", s.session.user.id).single();
       return data;
     },
   });
@@ -186,8 +284,10 @@ function PositionCalculator() {
               <button
                 key={v}
                 onClick={() => { fxTap(); setRisk(v); }}
-                className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${risk === v ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-              >{v}</button>
+                className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${risk === v ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+              >
+                {v}
+              </button>
             ))}
             <input
               type="number"
@@ -211,7 +311,9 @@ function PositionCalculator() {
             onChange={(e) => { fxTap(); setPairSym(e.target.value); }}
             className="w-full bg-transparent text-sm font-semibold outline-none"
           >
-            {PAIRS.map((p) => <option key={p.symbol} value={p.symbol} className="bg-card">{p.label}</option>)}
+            {PAIRS.map((p) => (
+              <option key={p.symbol} value={p.symbol} className="bg-card">{p.label}</option>
+            ))}
           </select>
         </Field>
       </div>
