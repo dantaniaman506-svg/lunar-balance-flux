@@ -23,39 +23,67 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     fxTap();
+
     try {
       if (mode === "signup") {
-        // Sign up (email confirmation disabled on Supabase dashboard → session returned immediately)
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
         });
+
         if (signUpError) throw signUpError;
 
         if (signUpData.session) {
-          // Supabase has "Confirm email" OFF — logged in directly
+          // Email confirmation is OFF in Supabase → logged in instantly
           navigate({ to: "/onboarding" });
           return;
         }
 
-        // Fallback: if Supabase still sends a confirmation email, try signing in anyway
-        // (works once the user is created even if unconfirmed on some Supabase plan configs)
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        // Session is null → Supabase still has "Confirm email" ON
+        // Try signing in anyway (works if user already exists / confirmed)
+        const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (!signInError && signInData.session) {
+
+        if (!retryError && retryData.session) {
           navigate({ to: "/onboarding" });
-        } else {
-          toast.info("Account created — check your email to confirm, then sign in.");
+          return;
         }
+
+        // Account created but email not confirmed yet
+        toast.error(
+          "⚠️ Supabase pe 'Confirm email' ON hai. Supabase Dashboard → Authentication → Providers → Email → 'Confirm email' toggle OFF karo.",
+          { duration: 10000 }
+        );
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate({ to: "/home" });
+        // LOGIN
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (error) {
+          // Give a clear Hindi+English message for common errors
+          if (error.message.toLowerCase().includes("email not confirmed")) {
+            toast.error(
+              "Email confirm nahi hai. Supabase Dashboard → Authentication → Providers → Email → 'Confirm email' OFF karo.",
+              { duration: 10000 }
+            );
+          } else if (
+            error.message.toLowerCase().includes("invalid") ||
+            error.message.toLowerCase().includes("credentials")
+          ) {
+            toast.error("Email ya password galat hai.");
+          } else {
+            toast.error(error.message);
+          }
+          return;
+        }
+
+        if (data.session) {
+          navigate({ to: "/home" });
+        }
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Auth failed");
+      toast.error(err instanceof Error ? err.message : "Kuch galat hua, dobara try karo.");
     } finally {
       setLoading(false);
     }
@@ -82,6 +110,7 @@ function AuthPage() {
             <input
               type="email"
               required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl border border-border bg-input px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
@@ -96,6 +125,7 @@ function AuthPage() {
               type="password"
               required
               minLength={6}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border border-border bg-input px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
