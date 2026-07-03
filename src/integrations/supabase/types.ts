@@ -14,7 +14,212 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daily_checklist: {
+        Row: {
+          checked_at: string
+          date: string
+          id: string
+          rule_id: string
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          date?: string
+          id?: string
+          rule_id: string
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          date?: string
+          id?: string
+          rule_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_checklist_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          bias: string | null
+          close_time: string | null
+          created_at: string
+          date: string
+          day: string | null
+          direction: string | null
+          entry_price: number | null
+          entry_time: string | null
+          exit_price: number | null
+          hold_time: string | null
+          id: string
+          lessons: string | null
+          lot_size: number | null
+          market_structure: string | null
+          mistakes: string | null
+          pair: string | null
+          pnl_usd: number
+          psych_after: string | null
+          psych_before: string | null
+          psych_during: string | null
+          result: string | null
+          rr: string | null
+          screenshot_after_url: string | null
+          screenshot_before_url: string | null
+          session: string | null
+          setup_type: string | null
+          sl_pips: number | null
+          target_pips: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bias?: string | null
+          close_time?: string | null
+          created_at?: string
+          date?: string
+          day?: string | null
+          direction?: string | null
+          entry_price?: number | null
+          entry_time?: string | null
+          exit_price?: number | null
+          hold_time?: string | null
+          id?: string
+          lessons?: string | null
+          lot_size?: number | null
+          market_structure?: string | null
+          mistakes?: string | null
+          pair?: string | null
+          pnl_usd?: number
+          psych_after?: string | null
+          psych_before?: string | null
+          psych_during?: string | null
+          result?: string | null
+          rr?: string | null
+          screenshot_after_url?: string | null
+          screenshot_before_url?: string | null
+          session?: string | null
+          setup_type?: string | null
+          sl_pips?: number | null
+          target_pips?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bias?: string | null
+          close_time?: string | null
+          created_at?: string
+          date?: string
+          day?: string | null
+          direction?: string | null
+          entry_price?: number | null
+          entry_time?: string | null
+          exit_price?: number | null
+          hold_time?: string | null
+          id?: string
+          lessons?: string | null
+          lot_size?: number | null
+          market_structure?: string | null
+          mistakes?: string | null
+          pair?: string | null
+          pnl_usd?: number
+          psych_after?: string | null
+          psych_before?: string | null
+          psych_during?: string | null
+          result?: string | null
+          rr?: string | null
+          screenshot_after_url?: string | null
+          screenshot_before_url?: string | null
+          session?: string | null
+          setup_type?: string | null
+          sl_pips?: number | null
+          target_pips?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          account_balance_usd: number
+          created_at: string
+          experience: string | null
+          id: string
+          name: string | null
+          onboarded: boolean
+          updated_at: string
+        }
+        Insert: {
+          account_balance_usd?: number
+          created_at?: string
+          experience?: string | null
+          id: string
+          name?: string | null
+          onboarded?: boolean
+          updated_at?: string
+        }
+        Update: {
+          account_balance_usd?: number
+          created_at?: string
+          experience?: string | null
+          id?: string
+          name?: string | null
+          onboarded?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      strategy_rules: {
+        Row: {
+          created_at: string
+          id: string
+          rule_text: string
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          rule_text: string
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          rule_text?: string
+          sort_order?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          currency_display: string
+          updated_at: string
+          usd_to_inr_rate: number
+          user_id: string
+        }
+        Insert: {
+          currency_display?: string
+          updated_at?: string
+          usd_to_inr_rate?: number
+          user_id: string
+        }
+        Update: {
+          currency_display?: string
+          updated_at?: string
+          usd_to_inr_rate?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
